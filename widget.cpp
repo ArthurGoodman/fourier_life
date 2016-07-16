@@ -1,10 +1,9 @@
 #include "widget.h"
 
 #include <QtWidgets>
-#include <omp.h>
 
 Widget::Widget(QWidget *parent)
-    : QWidget(parent), running(false) {
+    : QWidget(parent) {
     resize(qApp->desktop()->size() / 3 * 2);
     setMinimumSize(qApp->desktop()->size() / 4);
     move(qApp->desktop()->rect().center() - rect().center());
@@ -13,26 +12,26 @@ Widget::Widget(QWidget *parent)
 
     qsrand(QTime::currentTime().msec());
 
-    init();
+    thread = new QThread;
+    worker = new Worker;
+
+    //    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+    //    connect(thread, SIGNAL(finished()), worker, SLOT(deleteLater()));
+    connect(thread, SIGNAL(started()), worker, SLOT(run()));
+
+    worker->moveToThread(thread);
+
     defaults();
 
-    setBit(fieldWidth / 2, fieldHeight / 2);
-    setBit(fieldWidth / 2, fieldHeight / 2 + 1);
-    setBit(fieldWidth / 2 - 1, fieldHeight / 2 + 1);
-    setBit(fieldWidth / 2, fieldHeight / 2 - 1);
-    setBit(fieldWidth / 2 + 1, fieldHeight / 2);
-
-    startTimer(0);
+    startTimer(16);
 }
 
 Widget::~Widget() {
-    release();
+    delete thread;
+    delete worker;
 }
 
 void Widget::timerEvent(QTimerEvent *) {
-    if (running)
-        advance();
-
     update();
 }
 
@@ -66,11 +65,15 @@ void Widget::keyPressEvent(QKeyEvent *e) {
         break;
 
     case Qt::Key_R:
-        randomize();
+        worker->randomize();
         break;
 
     case Qt::Key_Space:
-        running = !running;
+        if (worker->isRunning()) {
+            worker->abort();
+            thread->terminate();
+        } else
+            thread->start();
         break;
     }
 }
@@ -97,7 +100,7 @@ void Widget::paintEvent(QPaintEvent *) {
 
     for (int y = -hh - 1; y <= hh + 1; y++)
         for (int x = -hw - 1; x <= hw + 1; x++) {
-            int bit = at(x + (int)offset.x(), y - (int)offset.y());
+            int bit = worker->at(x + (int)offset.x(), y - (int)offset.y());
 
             if (bit == -1)
                 continue;
@@ -106,92 +109,7 @@ void Widget::paintEvent(QPaintEvent *) {
         }
 }
 
-void Widget::init() {
-    fftwf_init_threads();
-
-    fftwf_plan_with_nthreads(omp_get_max_threads());
-
-    field = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
-    filter = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
-    sum = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
-
-    forward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, field, sum, FFTW_FORWARD, FFTW_MEASURE);
-    backward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, sum, sum, FFTW_BACKWARD, FFTW_MEASURE);
-
-    std::fill((float *)field, (float *)(field + fieldWidth * fieldHeight), 0.0f);
-
-    fftwf_plan filter_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, filter, filter, FFTW_FORWARD, FFTW_MEASURE);
-
-    std::fill((float *)filter, (float *)(filter + fieldWidth * fieldHeight), 0.0f);
-
-    filter[index(-1, -1)][0] = 1;
-    filter[index(0, -1)][0] = 1;
-    filter[index(1, -1)][0] = 1;
-    filter[index(-1, 0)][0] = 1;
-    filter[index(1, 0)][0] = 1;
-    filter[index(-1, 1)][0] = 1;
-    filter[index(0, 1)][0] = 1;
-    filter[index(1, 1)][0] = 1;
-
-    fftwf_execute(filter_plan);
-    fftwf_destroy_plan(filter_plan);
-}
-
-void Widget::release() {
-    fftwf_free(field);
-    fftwf_free(filter);
-    fftwf_free(sum);
-
-    fftwf_destroy_plan(forward_plan);
-    fftwf_destroy_plan(backward_plan);
-
-    fftwf_cleanup_threads();
-}
-
 void Widget::defaults() {
-    offset = QPointF(fieldWidth / 2, -fieldHeight / 2);
+    offset = QPointF(worker->width() / 2, -worker->height() / 2);
     cellSize = 4;
-}
-
-int Widget::index(int x, int y) {
-    return (x + fieldWidth) % fieldWidth + (y + fieldHeight) % fieldHeight * fieldWidth;
-}
-
-int Widget::at(int x, int y) {
-    if (x < 0 || y < 0 || x > fieldWidth || y > fieldHeight)
-        return -1;
-
-    return field[index(x, y)][0];
-}
-
-void Widget::setBit(int x, int y) {
-    field[index(x, y)][0] = 1;
-}
-
-void Widget::randomize() {
-    for (int x = 0; x < fieldWidth; x++)
-        for (int y = 0; y < fieldHeight; y++)
-            field[index(x, y)][0] = qrand() % 2;
-}
-
-void Widget::advance() {
-    fftwf_execute(forward_plan);
-
-    for (int x = 0; x < fieldWidth; x++)
-        for (int y = 0; y < fieldHeight; y++) {
-            sum[index(x, y)][0] *= filter[index(x, y)][0];
-            sum[index(x, y)][1] *= filter[index(x, y)][0];
-        }
-
-    fftwf_execute(backward_plan);
-
-    for (int x = 0; x < fieldWidth; x++)
-        for (int y = 0; y < fieldHeight; y++) {
-            int s = round(sum[index(x, y)][0]) / fieldWidth / fieldHeight;
-
-            if (field[index(x, y)][0])
-                field[index(x, y)][0] = s == 2 || s == 3;
-            else
-                field[index(x, y)][0] = s == 3;
-        }
 }

@@ -1,18 +1,14 @@
 #pragma once
 
 #include <QWidget>
-#include <fftw3.h>
+
+#include "worker.h"
 
 class Widget : public QWidget {
     Q_OBJECT
 
-    const int fieldWidth = 300;
-    const int fieldHeight = 300;
-
-    fftwf_complex *field, *filter, *sum;
-    fftwf_plan forward_plan, backward_plan;
-
-    bool running;
+    QThread *thread;
+    Worker *worker;
 
     QPoint lastPos;
     QPointF offset;
@@ -32,14 +28,5 @@ protected:
     void paintEvent(QPaintEvent *e);
 
 private:
-    void init();
-    void release();
     void defaults();
-
-    int index(int x, int y);
-    int at(int x, int y);
-    void setBit(int x, int y);
-    void randomize();
-
-    void advance();
 };
