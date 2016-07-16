@@ -1,6 +1,7 @@
 #include "widget.h"
 
 #include <QtWidgets>
+#include <omp.h>
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent), running(false) {
@@ -106,6 +107,10 @@ void Widget::paintEvent(QPaintEvent *) {
 }
 
 void Widget::init() {
+    fftwf_init_threads();
+
+    fftwf_plan_with_nthreads(omp_get_max_threads());
+
     field = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
     sum = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
     filter = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
@@ -127,6 +132,8 @@ void Widget::release() {
 
     fftwf_destroy_plan(forward_plan);
     fftwf_destroy_plan(backward_plan);
+
+    fftwf_cleanup_threads();
 }
 
 void Widget::defaults() {
@@ -200,11 +207,11 @@ void Widget::advance() {
 void Widget::save(fftwf_complex *data, int dim, QString fileName) {
     QImage image(fieldWidth, fieldHeight, QImage::Format_RGB32);
 
-    double max = *std::max_element((double *)data, (double *)(data + fieldWidth * fieldHeight));
+    float max = *std::max_element((float *)data, (float *)(data + fieldWidth * fieldHeight));
 
     for (int x = 0; x < fieldWidth; x++)
         for (int y = 0; y < fieldHeight; y++) {
-            double f = data[index(x, y)][dim] / max;
+            float f = data[index(x, y)][dim] / max;
             image.setPixel(x, y, qRgb(f * 255, f * 255, f * 255));
         }
 
