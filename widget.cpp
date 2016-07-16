@@ -10,6 +10,8 @@ Widget::Widget(QWidget *parent)
 
     setCursor(Qt::OpenHandCursor);
 
+    qsrand(QTime::currentTime().msec());
+
     init();
     defaults();
 
@@ -40,7 +42,7 @@ void Widget::mousePressEvent(QMouseEvent *e) {
 }
 
 void Widget::mouseMoveEvent(QMouseEvent *e) {
-    offset += QPointF(lastPos - e->pos());
+    offset += QPointF(lastPos - e->pos()) / (cellSize + 1);
     lastPos = e->pos();
 }
 
@@ -60,6 +62,10 @@ void Widget::keyPressEvent(QKeyEvent *e) {
 
     case Qt::Key_Backspace:
         defaults();
+        break;
+
+    case Qt::Key_R:
+        randomize();
         break;
 
     case Qt::Key_Space:
@@ -90,7 +96,7 @@ void Widget::paintEvent(QPaintEvent *) {
 
     for (int y = -hh; y <= hh; y++)
         for (int x = -hw; x <= hw; x++) {
-            int bit = at(x + (int)offset.x() / (cellSize + 1), y - (int)offset.y() / (cellSize + 1));
+            int bit = at(x + (int)offset.x(), y - (int)offset.y());
 
             if (bit == -1)
                 continue;
@@ -100,38 +106,44 @@ void Widget::paintEvent(QPaintEvent *) {
 }
 
 void Widget::init() {
-    field = (fftw_complex *)fftw_malloc(fieldWidth * fieldHeight * sizeof(fftw_complex));
-    sum = (fftw_complex *)fftw_malloc(fieldWidth * fieldHeight * sizeof(fftw_complex));
-    filter = (fftw_complex *)fftw_malloc(fieldWidth * fieldHeight * sizeof(fftw_complex));
-    temp = (fftw_complex *)fftw_malloc(fieldWidth * fieldHeight * sizeof(fftw_complex));
+    field = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
+    sum = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
+    filter = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
+    temp = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
 
-    forward_plan = fftw_plan_dft_2d(fieldWidth, fieldHeight, field, temp, FFTW_FORWARD, FFTW_MEASURE);
-    backward_plan = fftw_plan_dft_2d(fieldWidth, fieldHeight, temp, sum, FFTW_BACKWARD, FFTW_MEASURE);
+    forward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, field, temp, FFTW_FORWARD, FFTW_MEASURE);
+    backward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, temp, sum, FFTW_BACKWARD, FFTW_MEASURE);
 
-    std::fill((double *)field, (double *)(field + fieldWidth * fieldHeight), 0.0);
+    std::fill((float *)field, (float *)(field + fieldWidth * fieldHeight), 0.0f);
 
     createFilter();
 }
 
 void Widget::release() {
-    fftw_free(field);
-    fftw_free(sum);
-    fftw_free(filter);
-    fftw_free(temp);
+    fftwf_free(field);
+    fftwf_free(sum);
+    fftwf_free(filter);
+    fftwf_free(temp);
 
-    fftw_destroy_plan(forward_plan);
-    fftw_destroy_plan(backward_plan);
+    fftwf_destroy_plan(forward_plan);
+    fftwf_destroy_plan(backward_plan);
 }
 
 void Widget::defaults() {
-    offset = QPointF(fieldWidth / 2 * (cellSize + 1), -fieldHeight / 2 * (cellSize + 1));
-    scale = 1;
+    offset = QPointF(fieldWidth / 2, -fieldHeight / 2);
+    cellSize = 4;
+}
+
+void Widget::randomize() {
+    for (int x = 0; x < fieldWidth; x++)
+        for (int y = 0; y < fieldHeight; y++)
+            field[index(x, y)][0] = qrand() % 2;
 }
 
 void Widget::createFilter() {
-    fftw_plan filter_plan = fftw_plan_dft_2d(fieldWidth, fieldHeight, filter, filter, FFTW_FORWARD, FFTW_MEASURE);
+    fftwf_plan filter_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, filter, filter, FFTW_FORWARD, FFTW_MEASURE);
 
-    std::fill((double *)filter, (double *)(filter + fieldWidth * fieldHeight), 0.0);
+    std::fill((float *)filter, (float *)(filter + fieldWidth * fieldHeight), 0.0f);
 
     filter[index(-1, -1)][0] = 1;
     filter[index(0, -1)][0] = 1;
@@ -142,8 +154,8 @@ void Widget::createFilter() {
     filter[index(0, 1)][0] = 1;
     filter[index(1, 1)][0] = 1;
 
-    fftw_execute(filter_plan);
-    fftw_destroy_plan(filter_plan);
+    fftwf_execute(filter_plan);
+    fftwf_destroy_plan(filter_plan);
 
     save(filter, 0, "filter.png");
 }
@@ -164,7 +176,7 @@ void Widget::setBit(int x, int y) {
 }
 
 void Widget::advance() {
-    fftw_execute(forward_plan);
+    fftwf_execute(forward_plan);
 
     for (int x = 0; x < fieldWidth; x++)
         for (int y = 0; y < fieldHeight; y++) {
@@ -172,7 +184,7 @@ void Widget::advance() {
             temp[index(x, y)][1] *= filter[index(x, y)][0];
         }
 
-    fftw_execute(backward_plan);
+    fftwf_execute(backward_plan);
 
     for (int x = 0; x < fieldWidth; x++)
         for (int y = 0; y < fieldHeight; y++) {
@@ -185,7 +197,7 @@ void Widget::advance() {
         }
 }
 
-void Widget::save(fftw_complex *data, int dim, QString fileName) {
+void Widget::save(fftwf_complex *data, int dim, QString fileName) {
     QImage image(fieldWidth, fieldHeight, QImage::Format_RGB32);
 
     double max = *std::max_element((double *)data, (double *)(data + fieldWidth * fieldHeight));
