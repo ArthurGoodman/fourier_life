@@ -13,9 +13,12 @@ Widget::Widget(QWidget *parent)
     qsrand(QTime::currentTime().msec());
 
     thread = new QThread;
+
     worker = new Worker;
-    connect(thread, SIGNAL(started()), worker, SLOT(run()));
+    worker->setInterval(5);
     worker->moveToThread(thread);
+
+    connect(thread, SIGNAL(started()), worker, SLOT(run()));
 
     defaults();
 
