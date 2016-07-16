@@ -22,7 +22,7 @@ Widget::Widget(QWidget *parent)
     setBit(fieldWidth / 2, fieldHeight / 2 - 1);
     setBit(fieldWidth / 2 + 1, fieldHeight / 2);
 
-    startTimer(16);
+    startTimer(0);
 }
 
 Widget::~Widget() {
@@ -78,7 +78,7 @@ void Widget::keyPressEvent(QKeyEvent *e) {
 void Widget::wheelEvent(QWheelEvent *e) {
     if (e->delta() > 0)
         cellSize++;
-    else if (cellSize > 1)
+    else if (cellSize > 0)
         cellSize--;
 }
 
@@ -92,17 +92,17 @@ void Widget::paintEvent(QPaintEvent *) {
 
     p.translate(hw, hh);
 
-    hw /= cellSize;
-    hh /= cellSize;
+    hw /= (cellSize + 1);
+    hh /= (cellSize + 1);
 
-    for (int y = -hh; y <= hh; y++)
-        for (int x = -hw; x <= hw; x++) {
+    for (int y = -hh - 1; y <= hh + 1; y++)
+        for (int x = -hw - 1; x <= hw + 1; x++) {
             int bit = at(x + (int)offset.x(), y - (int)offset.y());
 
             if (bit == -1)
                 continue;
 
-            p.fillRect(x * (cellSize + 1) - cellSize / 2, -y * (cellSize + 1) - cellSize / 2, cellSize, cellSize, bit ? fgColor : bgColor);
+            p.fillRect(x * (cellSize + 1) - cellSize / 2, -y * (cellSize + 1) - cellSize / 2, qMax(cellSize, 1), qMax(cellSize, 1), bit ? fgColor : bgColor);
         }
 }
 
