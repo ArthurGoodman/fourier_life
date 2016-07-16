@@ -35,12 +35,11 @@ private:
     void init();
     void release();
     void defaults();
-    void randomize();
-    void createFilter();
+
     int index(int x, int y);
     int at(int x, int y);
     void setBit(int x, int y);
-    void advance();
+    void randomize();
 
-    void save(fftwf_complex *data, int dim, QString fileName);
+    void advance();
 };

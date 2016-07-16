@@ -120,7 +120,21 @@ void Widget::init() {
 
     std::fill((float *)field, (float *)(field + fieldWidth * fieldHeight), 0.0f);
 
-    createFilter();
+    fftwf_plan filter_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, filter, filter, FFTW_FORWARD, FFTW_MEASURE);
+
+    std::fill((float *)filter, (float *)(filter + fieldWidth * fieldHeight), 0.0f);
+
+    filter[index(-1, -1)][0] = 1;
+    filter[index(0, -1)][0] = 1;
+    filter[index(1, -1)][0] = 1;
+    filter[index(-1, 0)][0] = 1;
+    filter[index(1, 0)][0] = 1;
+    filter[index(-1, 1)][0] = 1;
+    filter[index(0, 1)][0] = 1;
+    filter[index(1, 1)][0] = 1;
+
+    fftwf_execute(filter_plan);
+    fftwf_destroy_plan(filter_plan);
 }
 
 void Widget::release() {
@@ -139,32 +153,6 @@ void Widget::defaults() {
     cellSize = 4;
 }
 
-void Widget::randomize() {
-    for (int x = 0; x < fieldWidth; x++)
-        for (int y = 0; y < fieldHeight; y++)
-            field[index(x, y)][0] = qrand() % 2;
-}
-
-void Widget::createFilter() {
-    fftwf_plan filter_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, filter, filter, FFTW_FORWARD, FFTW_MEASURE);
-
-    std::fill((float *)filter, (float *)(filter + fieldWidth * fieldHeight), 0.0f);
-
-    filter[index(-1, -1)][0] = 1;
-    filter[index(0, -1)][0] = 1;
-    filter[index(1, -1)][0] = 1;
-    filter[index(-1, 0)][0] = 1;
-    filter[index(1, 0)][0] = 1;
-    filter[index(-1, 1)][0] = 1;
-    filter[index(0, 1)][0] = 1;
-    filter[index(1, 1)][0] = 1;
-
-    fftwf_execute(filter_plan);
-    fftwf_destroy_plan(filter_plan);
-
-    save(filter, 0, "filter.png");
-}
-
 int Widget::index(int x, int y) {
     return (x + fieldWidth) % fieldWidth + (y + fieldHeight) % fieldHeight * fieldWidth;
 }
@@ -180,6 +168,12 @@ void Widget::setBit(int x, int y) {
     field[index(x, y)][0] = 1;
 }
 
+void Widget::randomize() {
+    for (int x = 0; x < fieldWidth; x++)
+        for (int y = 0; y < fieldHeight; y++)
+            field[index(x, y)][0] = qrand() % 2;
+}
+
 void Widget::advance() {
     fftwf_execute(forward_plan);
 
@@ -193,25 +187,11 @@ void Widget::advance() {
 
     for (int x = 0; x < fieldWidth; x++)
         for (int y = 0; y < fieldHeight; y++) {
-            int s = (int)round(sum[index(x, y)][0]) / fieldWidth / fieldHeight;
+            int s = round(sum[index(x, y)][0]) / fieldWidth / fieldHeight;
 
             if (field[index(x, y)][0])
                 field[index(x, y)][0] = s == 2 || s == 3;
             else
                 field[index(x, y)][0] = s == 3;
         }
-}
-
-void Widget::save(fftwf_complex *data, int dim, QString fileName) {
-    QImage image(fieldWidth, fieldHeight, QImage::Format_RGB32);
-
-    float max = *std::max_element((float *)data, (float *)(data + fieldWidth * fieldHeight));
-
-    for (int x = 0; x < fieldWidth; x++)
-        for (int y = 0; y < fieldHeight; y++) {
-            float f = data[index(x, y)][dim] / max;
-            image.setPixel(x, y, qRgb(f * 255, f * 255, f * 255));
-        }
-
-    image.save(fileName);
 }
