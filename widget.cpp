@@ -15,8 +15,6 @@ Widget::Widget(QWidget *parent)
     thread = new QThread;
     worker = new Worker;
 
-    //    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
-    //    connect(thread, SIGNAL(finished()), worker, SLOT(deleteLater()));
     connect(thread, SIGNAL(started()), worker, SLOT(run()));
 
     worker->moveToThread(thread);
@@ -27,6 +25,11 @@ Widget::Widget(QWidget *parent)
 }
 
 Widget::~Widget() {
+    worker->abort();
+
+    while (thread->isRunning()) {
+    }
+
     delete thread;
     delete worker;
 }
@@ -69,11 +72,7 @@ void Widget::keyPressEvent(QKeyEvent *e) {
         break;
 
     case Qt::Key_Space:
-        if (worker->isRunning()) {
-            worker->abort();
-            thread->terminate();
-        } else
-            thread->start();
+        worker->isRunning() ? worker->abort() : thread->start();
         break;
     }
 }

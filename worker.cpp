@@ -1,5 +1,7 @@
 #include "worker.h"
 
+#include <QTimer>
+#include <QThread>
 #include <omp.h>
 
 Worker::Worker(QObject *parent)
@@ -41,7 +43,10 @@ void Worker::abort() {
 }
 
 void Worker::randomize() {
-    randomizationRequested = true;
+    if (!running)
+        performRandomization();
+    else
+        randomizationRequested = true;
 }
 
 void Worker::run() {
@@ -56,6 +61,8 @@ void Worker::run() {
     }
 
     running = false;
+
+    QThread::currentThread()->quit();
 }
 
 void Worker::init() {
@@ -122,6 +129,9 @@ void Worker::advance() {
 
     for (int x = 0; x < fieldWidth; x++)
         for (int y = 0; y < fieldHeight; y++) {
+            if (abortRequested)
+                return;
+
             sum[index(x, y)][0] *= filter[index(x, y)][0];
             sum[index(x, y)][1] *= filter[index(x, y)][0];
         }
