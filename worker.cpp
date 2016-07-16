@@ -2,6 +2,7 @@
 
 #include <QTimer>
 #include <QThread>
+#include <QTime>
 #include <omp.h>
 
 Worker::Worker(QObject *parent)
@@ -54,6 +55,8 @@ void Worker::randomize() {
 }
 
 void Worker::run() {
+    qsrand(QTime::currentTime().msec());
+
     abortRequested = false;
     running = true;
 

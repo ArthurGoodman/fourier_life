@@ -14,9 +14,7 @@ Widget::Widget(QWidget *parent)
 
     thread = new QThread;
     worker = new Worker;
-
     connect(thread, SIGNAL(started()), worker, SLOT(run()));
-
     worker->moveToThread(thread);
 
     defaults();
