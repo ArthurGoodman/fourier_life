@@ -9,10 +9,11 @@ class Worker : public QObject {
     const int fieldWidth = 300;
     const int fieldHeight = 300;
 
-    fftwf_complex *field, *filter, *sum;
-    fftwf_plan forward_plan, backward_plan;
+    fftwf_complex *buffer[2], *filter, *sum;
+    fftwf_plan forward_plan[2], backward_plan;
 
     bool running, abortRequested, randomizationRequested;
+    int interval, c;
 
 public:
     explicit Worker(QObject *parent = 0);
@@ -20,6 +21,8 @@ public:
 
     int width() const;
     int height() const;
+
+    void setInterval(int interval);
 
     int at(int x, int y) const;
 
@@ -37,6 +40,7 @@ private:
 
     int index(int x, int y) const;
     void setBit(int x, int y);
+    int swap(int i) const;
     void performRandomization();
 
     void advance();
