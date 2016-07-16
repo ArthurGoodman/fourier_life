@@ -112,12 +112,11 @@ void Widget::init() {
     fftwf_plan_with_nthreads(omp_get_max_threads());
 
     field = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
-    sum = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
     filter = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
-    temp = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
+    sum = (fftwf_complex *)fftwf_malloc(fieldWidth * fieldHeight * sizeof(fftwf_complex));
 
-    forward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, field, temp, FFTW_FORWARD, FFTW_MEASURE);
-    backward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, temp, sum, FFTW_BACKWARD, FFTW_MEASURE);
+    forward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, field, sum, FFTW_FORWARD, FFTW_MEASURE);
+    backward_plan = fftwf_plan_dft_2d(fieldHeight, fieldWidth, sum, sum, FFTW_BACKWARD, FFTW_MEASURE);
 
     std::fill((float *)field, (float *)(field + fieldWidth * fieldHeight), 0.0f);
 
@@ -126,9 +125,8 @@ void Widget::init() {
 
 void Widget::release() {
     fftwf_free(field);
-    fftwf_free(sum);
     fftwf_free(filter);
-    fftwf_free(temp);
+    fftwf_free(sum);
 
     fftwf_destroy_plan(forward_plan);
     fftwf_destroy_plan(backward_plan);
@@ -187,8 +185,8 @@ void Widget::advance() {
 
     for (int x = 0; x < fieldWidth; x++)
         for (int y = 0; y < fieldHeight; y++) {
-            temp[index(x, y)][0] *= filter[index(x, y)][0];
-            temp[index(x, y)][1] *= filter[index(x, y)][0];
+            sum[index(x, y)][0] *= filter[index(x, y)][0];
+            sum[index(x, y)][1] *= filter[index(x, y)][0];
         }
 
     fftwf_execute(backward_plan);

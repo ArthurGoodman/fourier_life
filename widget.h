@@ -9,15 +9,14 @@ class Widget : public QWidget {
     const int fieldWidth = 300;
     const int fieldHeight = 300;
 
-    int cellSize = 4;
-
-    fftwf_complex *field, *sum, *filter, *temp;
+    fftwf_complex *field, *filter, *sum;
     fftwf_plan forward_plan, backward_plan;
 
     bool running;
 
     QPoint lastPos;
     QPointF offset;
+    int cellSize;
 
 public:
     explicit Widget(QWidget *parent = 0);
